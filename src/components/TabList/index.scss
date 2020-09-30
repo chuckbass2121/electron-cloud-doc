@@ -1,0 +1,26 @@
+.tab-list {
+  .close-icon {
+    visibility: hidden;
+  }
+
+  .nav-link:hover .close-icon {
+    visibility: visible;
+  }
+
+  .nav-link.active .close-icon {
+    visibility: visible;
+  }
+
+  .unsaved.nav-link .close-icon {
+    display: none;
+  }
+
+  .unsaved.nav-link:hover .close-icon {
+    display: inline-block;
+  }
+
+  .unsaved.nav-link:hover .unsaved-icon {
+    display: none;
+  }
+
+}

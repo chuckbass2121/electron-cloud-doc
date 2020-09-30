@@ -11,8 +11,8 @@ function BottomBtn(props) {
       className={`btn btn-block border-0 ${colorClass}`}
       onClick={onBtnClick}
     >
-      {text}
       <FontAwesomeIcon icon={icon} />
+      {text}
     </button>
   );
 }
