@@ -21,6 +21,7 @@ import FileList from './components/FileList';
 import BottomBtn from './components/BottomBtn';
 import TabList from './components/TabList';
 import defaultFiles from './utils/defaultFiles';
+import { arrToObj, objToArr } from './utils/helper';
 
 library.add(
   fab,
@@ -34,21 +35,15 @@ library.add(
 );
 
 function App() {
-  const [files, setFiles] = useState(defaultFiles);
+  const [files, setFiles] = useState(arrToObj(defaultFiles));
   const [activeFileId, setActiveFileId] = useState('');
   const [openedFileIds, setOpenedFileIds] = useState([]);
   const [unsavedFileIds, setUnsavedFilesIds] = useState([]);
   const [searchedFiles, setSearchedFiles] = useState([]);
 
-  let openedFiles = [];
-  openedFileIds.forEach((fileId) => {
-    const file = files.find((file) => file.id === fileId);
-    if (file) {
-      openedFiles.push(file);
-    }
-  });
-
-  const activeFile = files.find((file) => file.id === activeFileId);
+  const filesArr = objToArr(files);
+  const openedFiles = openedFileIds.map((id) => files[id]);
+  const activeFile = files[activeFileId];
 
   const handleFileClick = (id) => {
     setActiveFileId(id);
@@ -72,13 +67,8 @@ function App() {
   };
 
   const handleFileChange = (id, value) => {
-    const newFiles = files.map((file) => {
-      if (file.id === id) {
-        file.body = value;
-      }
-      return file;
-    });
-    setFiles(newFiles);
+    const modifiedFile = { ...files[id], body: value };
+    setFiles({ ...files, [id]: modifiedFile });
 
     if (!unsavedFileIds.includes(id)) {
       setUnsavedFilesIds([...unsavedFileIds, id]);
@@ -86,40 +76,33 @@ function App() {
   };
 
   const handleFileDelete = (id) => {
-    const newFiles = files.filter((file) => file.id !== id);
-    setFiles(newFiles);
+    const newFiles = filesArr.filter((file) => file.id !== id);
+    setFiles(arrToObj(newFiles));
     if (openedFileIds.includes(id)) {
       handleTabClose(id);
     }
   };
 
   const handleFileSearch = (searchStr) => {
-    const newFiles = files.filter((file) => file.title.includes(searchStr));
+    const newFiles = filesArr.filter((file) => file.title.includes(searchStr));
     setSearchedFiles(newFiles);
   };
 
   const handleSaveEdit = (id, value) => {
-    const newFiles = files.map((file) => {
-      if (file.id === id) {
-        file.title = value;
-      }
-      return file;
-    });
-    setFiles(newFiles);
+    const modifiedFile = { ...files[id], title: value, isNew: false };
+    setFiles({ ...files, [id]: modifiedFile });
   };
 
   const createNewFile = () => {
-    const newFiles = [
-      ...files,
-      {
-        id: uuidv4(),
-        title: '',
-        body: '## 请输出 Markdown',
-        createdAt: new Date().getTime(),
-        isNew: true,
-      },
-    ];
-    setFiles(newFiles);
+    const id = uuidv4();
+    const newFile = {
+      id: id,
+      title: '',
+      body: '## 请输出 Markdown',
+      createdAt: new Date().getTime(),
+      isNew: true,
+    };
+    setFiles({ ...files, [id]: newFile });
   };
 
   return (
@@ -128,7 +111,7 @@ function App() {
         <div className="col-3">
           <FileSearch title="My Document" onFileSearch={handleFileSearch} />
           <FileList
-            files={searchedFiles.length ? searchedFiles : files}
+            files={searchedFiles.length ? searchedFiles : filesArr}
             onFileClick={handleFileClick}
             onFileDelete={handleFileDelete}
             onSaveEdit={handleSaveEdit}

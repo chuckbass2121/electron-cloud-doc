@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import useKeyPress from '../../hooks/useKeyPress';
@@ -17,14 +17,20 @@ function FileList(props) {
     setValue(file.title);
   };
 
-  const closeSearch = () => {
-    setEditId('');
-    setValue('');
-  };
+  const closeSearch = useCallback(
+    (editItem) => {
+      setEditId('');
+      setValue('');
+      if (editItem.isNew) {
+        onFileDelete(editItem.id);
+      }
+    },
+    [onFileDelete]
+  );
 
   useEffect(() => {
     const editItem = files.find((file) => file.id === editId);
-    if (enterPressed && editId) {
+    if (enterPressed && editId && value.trim() !== '') {
       onSaveEdit(editItem.id, value);
       setEditId('');
       setValue('');
@@ -32,7 +38,21 @@ function FileList(props) {
     if (escPressed && editId) {
       closeSearch(editItem);
     }
-  });
+  }, [files, enterPressed, editId, escPressed, onSaveEdit, value, closeSearch]);
+
+  useEffect(() => {
+    const newFile = files.find((file) => file.isNew);
+    if (newFile) {
+      setEditId(newFile.id);
+      setValue(newFile.title);
+    }
+  }, [files]);
+
+  useEffect(() => {
+    if (editId) {
+      inputRef.current.focus();
+    }
+  }, [editId]);
 
   return (
     <ul className="list-group list-group-flush">
@@ -41,28 +61,7 @@ function FileList(props) {
           className="list-group-item bg-light row d-flex align-items-center no-gutters"
           key={file.id}
         >
-          {file.id !== editId && (
-            <>
-              <span className="col-2">
-                <FontAwesomeIcon icon={['fab', 'markdown']} />
-              </span>
-              <span
-                className="col-8"
-                onClick={() => {
-                  onFileClick(file.id);
-                }}
-              >
-                {file.title}
-              </span>
-              <span className="col-1" onClick={() => handleEdit(file)}>
-                <FontAwesomeIcon icon="edit" />
-              </span>
-              <span className="col-1" onClick={() => onFileDelete(file.id)}>
-                <FontAwesomeIcon icon="trash" />
-              </span>
-            </>
-          )}
-          {file.id === editId && (
+          {file.id === editId || file.isNew ? (
             <>
               <input
                 className="form-control col-10"
@@ -82,6 +81,26 @@ function FileList(props) {
               >
                 <FontAwesomeIcon title="关闭" size="lg" icon="times" />
               </button>
+            </>
+          ) : (
+            <>
+              <span className="col-2">
+                <FontAwesomeIcon icon={['fab', 'markdown']} />
+              </span>
+              <span
+                className="col-8"
+                onClick={() => {
+                  onFileClick(file.id);
+                }}
+              >
+                {file.title}
+              </span>
+              <span className="col-1" onClick={() => handleEdit(file)}>
+                <FontAwesomeIcon icon="edit" />
+              </span>
+              <span className="col-1" onClick={() => onFileDelete(file.id)}>
+                <FontAwesomeIcon icon="trash" />
+              </span>
             </>
           )}
         </li>
