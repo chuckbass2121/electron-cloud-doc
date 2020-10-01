@@ -11,6 +11,8 @@ import {
   faCircle,
 } from '@fortawesome/free-solid-svg-icons';
 import SimpleMDE from 'react-simplemde-editor';
+import { v4 as uuidv4 } from 'uuid';
+
 import 'easymde/dist/easymde.min.css';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -106,6 +108,20 @@ function App() {
     setFiles(newFiles);
   };
 
+  const createNewFile = () => {
+    const newFiles = [
+      ...files,
+      {
+        id: uuidv4(),
+        title: '',
+        body: '## 请输出 Markdown',
+        createdAt: new Date().getTime(),
+        isNew: true,
+      },
+    ];
+    setFiles(newFiles);
+  };
+
   return (
     <div className="container-fluid">
       <div className="row no-gutters min-vh-100">
@@ -118,7 +134,12 @@ function App() {
             onSaveEdit={handleSaveEdit}
           />
           <div className="d-flex align-items-baseline bottom-btn-group">
-            <BottomBtn text="新建" colorClass="btn-primary" icon="plus" />
+            <BottomBtn
+              text="新建"
+              colorClass="btn-primary"
+              icon="plus"
+              onBtnClick={createNewFile}
+            />
             <BottomBtn
               text="导入"
               colorClass="btn-success"
