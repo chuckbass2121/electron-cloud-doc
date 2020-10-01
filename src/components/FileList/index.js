@@ -26,6 +26,7 @@ function FileList(props) {
     const editItem = files.find((file) => file.id === editId);
     if (enterPressed && editId) {
       onSaveEdit(editItem.id, value);
+      closeSearch(editItem);
     }
     if (escPressed && editId) {
       closeSearch(editItem);

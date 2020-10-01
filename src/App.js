@@ -36,29 +36,86 @@ function App() {
   const [activeFileId, setActiveFileId] = useState('');
   const [openedFileIds, setOpenedFileIds] = useState([]);
   const [unsavedFileIds, setUnsavedFilesIds] = useState([]);
+  const [searchedFiles, setSearchedFiles] = useState([]);
 
-  const openedFiles = openedFileIds.map((fileId) => {
-    return files[fileId];
+  let openedFiles = [];
+  openedFileIds.forEach((fileId) => {
+    const file = files.find((file) => file.id === fileId);
+    if (file) {
+      openedFiles.push(file);
+    }
   });
 
-  const activeFile = files[activeFileId];
+  const activeFile = files.find((file) => file.id === activeFileId);
+
+  const handleFileClick = (id) => {
+    setActiveFileId(id);
+    if (!openedFileIds.includes(id)) {
+      setOpenedFileIds([...openedFileIds, id]);
+    }
+  };
+
+  const handleTabClick = (id) => {
+    setActiveFileId(id);
+  };
+
+  const handleTabClose = (id) => {
+    const _openedFileIds = openedFileIds.filter((fileId) => fileId !== id);
+    setOpenedFileIds(_openedFileIds);
+    if (_openedFileIds.length) {
+      setActiveFileId(_openedFileIds[0]);
+    } else {
+      setActiveFileId('');
+    }
+  };
+
+  const handleFileChange = (id, value) => {
+    const newFiles = files.map((file) => {
+      if (file.id === id) {
+        file.body = value;
+      }
+      return file;
+    });
+    setFiles(newFiles);
+
+    if (!unsavedFileIds.includes(id)) {
+      setUnsavedFilesIds([...unsavedFileIds, id]);
+    }
+  };
+
+  const handleFileDelete = (id) => {
+    const newFiles = files.filter((file) => file.id !== id);
+    setFiles(newFiles);
+    if (openedFileIds.includes(id)) {
+      handleTabClose(id);
+    }
+  };
+
+  const handleFileSearch = (searchStr) => {
+    const newFiles = files.filter((file) => file.title.includes(searchStr));
+    setSearchedFiles(newFiles);
+  };
+
+  const handleSaveEdit = (id, value) => {
+    const newFiles = files.map((file) => {
+      if (file.id === id) {
+        file.title = value;
+      }
+      return file;
+    });
+    setFiles(newFiles);
+  };
 
   return (
     <div className="container-fluid">
       <div className="row no-gutters min-vh-100">
         <div className="col-3">
-          <FileSearch title="My Document" onFileSearch={() => {}} />
+          <FileSearch title="My Document" onFileSearch={handleFileSearch} />
           <FileList
-            files={files}
-            onFileClick={(id) => {
-              console.log(id);
-            }}
-            onFileDelete={(id) => {
-              console.log(id);
-            }}
-            onSaveEdit={(id, value) => {
-              console.log(id, value);
-            }}
+            files={searchedFiles.length ? searchedFiles : files}
+            onFileClick={handleFileClick}
+            onFileDelete={handleFileDelete}
+            onSaveEdit={handleSaveEdit}
           />
           <div className="d-flex align-items-baseline bottom-btn-group">
             <BottomBtn text="新建" colorClass="btn-primary" icon="plus" />
@@ -78,15 +135,13 @@ function App() {
                 files={openedFiles}
                 unsavedIds={unsavedFileIds}
                 activeId={activeFileId}
-                onTabClick={(id) => {
-                  console.log('click tab', id);
-                }}
-                onCloseTab={(id) => {
-                  console.log('close tab', id);
-                }}
+                onTabClick={handleTabClick}
+                onCloseTab={handleTabClose}
               />
               <SimpleMDE
-                onChange={() => {}}
+                key={activeFile && activeFile.id}
+                value={activeFile && activeFile.body}
+                onChange={(value) => handleFileChange(activeFile.id, value)}
                 options={{
                   minHeight: '85vh',
                 }}
