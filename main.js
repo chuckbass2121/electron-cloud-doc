@@ -1,3 +1,4 @@
+const path = require('path');
 const { app, BrowserWindow } = require('electron');
 
 function createWindow() {
@@ -7,6 +8,9 @@ function createWindow() {
     height: 600,
     webPreferences: {
       nodeIntegration: true,
+      preload: path.join(__dirname, 'preload.js'),
+      // false 的在render process中获取不到remote 对象
+      enableRemoteModule: true,
     },
   });
 

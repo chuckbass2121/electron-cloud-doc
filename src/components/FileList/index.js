@@ -31,7 +31,7 @@ function FileList(props) {
   useEffect(() => {
     const editItem = files.find((file) => file.id === editId);
     if (enterPressed && editId && value.trim() !== '') {
-      onSaveEdit(editItem.id, value);
+      onSaveEdit(editItem.id, value, editItem.isNew);
       setEditId('');
       setValue('');
     }

@@ -13,16 +13,17 @@ import {
 import SimpleMDE from 'react-simplemde-editor';
 import { v4 as uuidv4 } from 'uuid';
 
-import 'easymde/dist/easymde.min.css';
-import './App.css';
-import 'bootstrap/dist/css/bootstrap.min.css';
 import FileSearch from './components/FileSearch';
 import FileList from './components/FileList';
 import BottomBtn from './components/BottomBtn';
 import TabList from './components/TabList';
 import defaultFiles from './utils/defaultFiles';
 import { arrToObj, objToArr } from './utils/helper';
+import fileHelper from './utils/fileHelper';
 
+import 'easymde/dist/easymde.min.css';
+import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 library.add(
   fab,
   faSearch,
@@ -33,6 +34,8 @@ library.add(
   faFileImport,
   faCircle
 );
+const { join } = window.require('path');
+const { remote } = window.require('electron');
 
 function App() {
   const [files, setFiles] = useState(arrToObj(defaultFiles));
@@ -44,6 +47,8 @@ function App() {
   const filesArr = objToArr(files);
   const openedFiles = openedFileIds.map((id) => files[id]);
   const activeFile = files[activeFileId];
+
+  const savedLocation = remote.app.getPath('documents');
 
   const handleFileClick = (id) => {
     setActiveFileId(id);
@@ -76,8 +81,9 @@ function App() {
   };
 
   const handleFileDelete = (id) => {
-    const newFiles = filesArr.filter((file) => file.id !== id);
-    setFiles(arrToObj(newFiles));
+    const newFiles = { ...files };
+    delete newFiles[id];
+    setFiles(newFiles);
     if (openedFileIds.includes(id)) {
       handleTabClose(id);
     }
@@ -88,9 +94,21 @@ function App() {
     setSearchedFiles(newFiles);
   };
 
-  const handleSaveEdit = (id, value) => {
-    const modifiedFile = { ...files[id], title: value, isNew: false };
-    setFiles({ ...files, [id]: modifiedFile });
+  const handleSaveEdit = (id, title, isNew) => {
+    const newPath = join(savedLocation, `${title}.md`);
+    const modifiedFile = { ...files[id], title: title, isNew: false };
+    const newFiles = { ...files, [id]: modifiedFile };
+    if (isNew) {
+      fileHelper.writeFile(newPath, files[id].body).then(() => {
+        setFiles(newFiles);
+      });
+    } else {
+      //rename
+      const oldPath = join(savedLocation, `${files[id].title}.md`);
+      fileHelper.renameFile(oldPath, newPath).then(() => {
+        setFiles(newFiles);
+      });
+    }
   };
 
   const createNewFile = () => {
@@ -103,6 +121,13 @@ function App() {
       isNew: true,
     };
     setFiles({ ...files, [id]: newFile });
+  };
+
+  const saveCurrentFile = () => {
+    const path = join(savedLocation, `${activeFile.title}.md`);
+    fileHelper.writeFile(path, activeFile.body).then(() => {
+      setUnsavedFilesIds(unsavedFileIds.filter((id) => id !== activeFile.id));
+    });
   };
 
   return (
@@ -127,6 +152,12 @@ function App() {
               text="导入"
               colorClass="btn-success"
               icon="file-import"
+            />
+            <BottomBtn
+              text="保存"
+              colorClass="btn-success"
+              icon="file-import"
+              onBtnClick={saveCurrentFile}
             />
           </div>
         </div>
