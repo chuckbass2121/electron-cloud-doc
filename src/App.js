@@ -34,11 +34,29 @@ library.add(
   faFileImport,
   faCircle
 );
-const { join } = window.require('path');
-const { remote } = window.require('electron');
+const { join, dirname } = require('path');
+const { remote } = require('electron');
+
+const Store = require('electron-store');
+const fileStore = new Store({ name: 'Files Data' });
+const saveFilesToStore = (files) => {
+  const filesStoreObj = objToArr(files).reduce((result, file) => {
+    const { id, path, title, createdAt, isSynced, updatedAt } = file;
+    result[id] = {
+      id,
+      path,
+      title,
+      createdAt,
+      isSynced,
+      updatedAt,
+    };
+    return result;
+  }, {});
+  fileStore.set('files', filesStoreObj);
+};
 
 function App() {
-  const [files, setFiles] = useState(arrToObj(defaultFiles));
+  const [files, setFiles] = useState(fileStore.get('files') || {});
   const [activeFileId, setActiveFileId] = useState('');
   const [openedFileIds, setOpenedFileIds] = useState([]);
   const [unsavedFileIds, setUnsavedFilesIds] = useState([]);
@@ -50,10 +68,17 @@ function App() {
 
   const savedLocation = remote.app.getPath('documents');
 
-  const handleFileClick = (id) => {
-    setActiveFileId(id);
-    if (!openedFileIds.includes(id)) {
-      setOpenedFileIds([...openedFileIds, id]);
+  const handleFileClick = (fileID) => {
+    setActiveFileId(fileID);
+    const currentFile = files[fileID];
+    if (!currentFile.isLoaded) {
+      fileHelper.readFile(currentFile.path).then((value) => {
+        const newFile = { ...files[fileID], body: value, isLoaded: true };
+        setFiles({ ...files, [fileID]: newFile });
+      });
+    }
+    if (!openedFileIds.includes(fileID)) {
+      setOpenedFileIds([...openedFileIds, fileID]);
     }
   };
 
@@ -81,11 +106,19 @@ function App() {
   };
 
   const handleFileDelete = (id) => {
-    const newFiles = { ...files };
-    delete newFiles[id];
-    setFiles(newFiles);
-    if (openedFileIds.includes(id)) {
-      handleTabClose(id);
+    if (files[id].isNew) {
+      const { [id]: value, ...afterDelete } = files;
+      setFiles(afterDelete);
+    } else {
+      fileHelper.deleteFile(files[id].path).then(() => {
+        const { [id]: value, ...afterDelete } = files;
+        setFiles(afterDelete);
+        saveFilesToStore(afterDelete);
+        // close the tab if opened
+        if (openedFileIds.includes(id)) {
+          handleTabClose(id);
+        }
+      });
     }
   };
 
@@ -95,18 +128,24 @@ function App() {
   };
 
   const handleSaveEdit = (id, title, isNew) => {
-    const newPath = join(savedLocation, `${title}.md`);
-    const modifiedFile = { ...files[id], title: title, isNew: false };
+    // newPath should be different based on isNew
+    // if isNew is false, path should be old dirname + new title
+    const newPath = isNew
+      ? join(savedLocation, `${title}.md`)
+      : join(dirname(files[id].path), `${title}.md`);
+    const modifiedFile = { ...files[id], title, isNew: false, path: newPath };
     const newFiles = { ...files, [id]: modifiedFile };
     if (isNew) {
       fileHelper.writeFile(newPath, files[id].body).then(() => {
         setFiles(newFiles);
+        saveFilesToStore(newFiles);
       });
     } else {
       //rename
-      const oldPath = join(savedLocation, `${files[id].title}.md`);
+      const oldPath = files[id].path;
       fileHelper.renameFile(oldPath, newPath).then(() => {
         setFiles(newFiles);
+        saveFilesToStore(newFiles);
       });
     }
   };

@@ -1,5 +1,5 @@
 // 在render process 中引用node模块， 需要使用window.require
-const fs = window.require('fs').promises;
+const fs = require('fs').promises;
 
 const fileHelper = {
   readFile: (path) => {
