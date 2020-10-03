@@ -34,7 +34,7 @@ library.add(
   faFileImport,
   faCircle
 );
-const { join, dirname } = require('path');
+const { join, dirname, basename, extname } = require('path');
 const { remote } = require('electron');
 
 const Store = require('electron-store');
@@ -163,10 +163,57 @@ function App() {
   };
 
   const saveCurrentFile = () => {
-    const path = join(savedLocation, `${activeFile.title}.md`);
-    fileHelper.writeFile(path, activeFile.body).then(() => {
+    const { path, body } = activeFile;
+    fileHelper.writeFile(path, body).then(() => {
       setUnsavedFilesIds(unsavedFileIds.filter((id) => id !== activeFile.id));
     });
+  };
+
+  const importFiles = () => {
+    remote.dialog
+      .showOpenDialog({
+        title: '选择导入的 Markdown 文件',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Markdown files', extensions: ['md'] }],
+      })
+      .then(({ filePaths }) => {
+        console.log(filePaths);
+        if (Array.isArray(filePaths)) {
+          // filter out the path we already have in electron store
+          // ["/Users/liusha/Desktop/name1.md", "/Users/liusha/Desktop/name2.md"]
+          const filteredPaths = filePaths.filter((path) => {
+            return Object.values(files).find((file) => file.path !== path);
+          });
+          // extend the path array to an array contains files info
+          // [{id: '1', path: '', title: ''}, {}]
+          const importFilesArr = filteredPaths.map((path) => {
+            return {
+              id: uuidv4(),
+              title: basename(path, extname(path)),
+              path,
+            };
+          });
+          // get the new files object in flattenArr
+          const newFiles = { ...files, ...arrToObj(importFilesArr) };
+          // setState and update electron store
+          setFiles(newFiles);
+          saveFilesToStore(newFiles);
+          if (importFilesArr.length > 0) {
+            return remote.dialog.showMessageBox({
+              type: 'info',
+              title: `成功导入了${importFilesArr.length}个文件`,
+              message: `成功导入了${importFilesArr.length}个文件`,
+            });
+          }
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+        remote.dialog.showMessageBoxSync({
+          type: 'error',
+          message: `${err}`,
+        });
+      });
   };
 
   return (
@@ -191,6 +238,7 @@ function App() {
               text="导入"
               colorClass="btn-success"
               icon="file-import"
+              onBtnClick={importFiles}
             />
             <BottomBtn
               text="保存"
