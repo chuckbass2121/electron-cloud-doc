@@ -40,6 +40,7 @@ const { remote } = require('electron');
 
 const Store = require('electron-store');
 const fileStore = new Store({ name: 'Files Data' });
+const settingsStore = new Store({ name: 'Settings' });
 const saveFilesToStore = (files) => {
   const filesStoreObj = objToArr(files).reduce((result, file) => {
     const { id, path, title, createdAt, isSynced, updatedAt } = file;
@@ -62,12 +63,14 @@ function App() {
   const [openedFileIds, setOpenedFileIds] = useState([]);
   const [unsavedFileIds, setUnsavedFilesIds] = useState([]);
   const [searchedFiles, setSearchedFiles] = useState([]);
+  const [inputActive, setInputActive] = useState(false);
 
   const filesArr = objToArr(files);
   const openedFiles = openedFileIds.map((id) => files[id]);
   const activeFile = files[activeFileId];
 
-  const savedLocation = remote.app.getPath('documents');
+  const savedLocation =
+    settingsStore.get('savedFileLocation') || remote.app.getPath('documents');
 
   const handleFileClick = (fileID) => {
     setActiveFileId(fileID);
@@ -220,7 +223,9 @@ function App() {
   useIpcRenderer({
     'create-new-file': createNewFile,
     'import-file': importFiles,
-    'search-file': handleFileSearch,
+    'search-file': () => {
+      setInputActive(true);
+    },
     'save-edit-file': saveCurrentFile,
   });
 
@@ -228,7 +233,12 @@ function App() {
     <div className="container-fluid">
       <div className="row no-gutters min-vh-100">
         <div className="col-3">
-          <FileSearch title="My Document" onFileSearch={handleFileSearch} />
+          <FileSearch
+            title="My Document"
+            onFileSearch={handleFileSearch}
+            inputActive={inputActive}
+            setInputActive={setInputActive}
+          />
           <FileList
             files={searchedFiles.length ? searchedFiles : filesArr}
             onFileClick={handleFileClick}

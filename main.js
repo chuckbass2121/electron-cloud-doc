@@ -1,34 +1,57 @@
 const path = require('path');
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
+const isDev = require('electron-is-dev');
 const menuTemplate = require('./src/menuTemplate');
+const AppWindow = require('./src/AppWindow');
 
 function createWindow() {
+  const urlLocation = isDev
+    ? 'http://localhost:3000'
+    : `file://${path.join(__dirname, './index.html')}`;
   // 创建浏览器窗口
-  const win = new BrowserWindow({
-    width: 800,
-    height: 600,
-    webPreferences: {
-      nodeIntegration: true,
-      preload: path.join(__dirname, 'preload.js'),
-      // false 的在render process中获取不到remote 对象
-      enableRemoteModule: true,
+  const win = new AppWindow(
+    {
+      width: 1440,
+      height: 768,
     },
-  });
-
-  // 并且为你的应用加载index.html
-  win.loadURL('http://localhost:3000');
+    urlLocation
+  );
 
   // 打开开发者工具
   win.webContents.openDevTools();
+  return win;
 }
 
 // Electron会在初始化完成并且准备好创建浏览器窗口时调用这个方法
 // 部分 API 在 ready 事件触发后才能使用。
 app.whenReady().then(() => {
-  createWindow();
+  let mainWindow = createWindow();
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
   // set the menu
   let menu = Menu.buildFromTemplate(menuTemplate);
   Menu.setApplicationMenu(menu);
+  // hook up main events
+  ipcMain.on('open-settings-window', () => {
+    const settingsWindowConfig = {
+      width: 800,
+      height: 600,
+      parent: mainWindow,
+    };
+    const settingsFileLocation = `file://${path.join(
+      __dirname,
+      './settings/settings.html'
+    )}`;
+    let settingsWindow = new AppWindow(
+      settingsWindowConfig,
+      settingsFileLocation
+    );
+    settingsWindow.removeMenu();
+    settingsWindow.on('closed', () => {
+      settingsWindow = null;
+    });
+  });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

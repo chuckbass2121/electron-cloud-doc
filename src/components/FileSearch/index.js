@@ -5,8 +5,8 @@ import useKeyPress from '../../hooks/useKeyPress';
 import './index.css';
 
 function FileSearch(props) {
-  const { title, onFileSearch } = props;
-  const [inputActive, setInputActive] = useState(false);
+  const { title, onFileSearch, inputActive, setInputActive } = props;
+
   const [value, setValue] = useState('');
   const inputRef = useRef(null);
   const enterPressed = useKeyPress(13);
@@ -72,6 +72,8 @@ function FileSearch(props) {
 FileSearch.propTypes = {
   title: PropTypes.string.isRequired,
   onFileSearch: PropTypes.func.isRequired,
+  inputActive: PropTypes.bool.isRequired,
+  setInputActive: PropTypes.func.isRequired,
 };
 
 export default FileSearch;
