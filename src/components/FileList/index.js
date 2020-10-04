@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import useKeyPress from '../../hooks/useKeyPress';
-// import './index.css';
+import useContextMenu from '../../hooks/useContextMenu';
+import { getParentNode } from '../../utils/helper';
 
 function FileList(props) {
   const { files, onFileClick, onSaveEdit, onFileDelete } = props;
@@ -54,12 +55,59 @@ function FileList(props) {
     }
   }, [editId]);
 
+  const clickedItem = useContextMenu(
+    [
+      {
+        label: '打开',
+        click: () => {
+          const parentElement = getParentNode(
+            clickedItem.current,
+            'file-list-item'
+          );
+          if (parentElement) {
+            onFileClick(parentElement.dataset.id);
+          }
+        },
+      },
+      {
+        label: '重命名',
+        click: () => {
+          const parentElement = getParentNode(
+            clickedItem.current,
+            'file-list-item'
+          );
+          if (parentElement) {
+            const { id, title } = parentElement.dataset;
+            setEditId(id);
+            setValue(title);
+          }
+        },
+      },
+      {
+        label: '删除',
+        click: () => {
+          const parentElement = getParentNode(
+            clickedItem.current,
+            'file-list-item'
+          );
+          if (parentElement) {
+            onFileDelete(parentElement.dataset.id);
+          }
+        },
+      },
+    ],
+    '.file-list',
+    files
+  );
+
   return (
-    <ul className="list-group list-group-flush">
+    <ul className="list-group list-group-flush file-list">
       {files.map((file) => (
         <li
-          className="list-group-item bg-light row d-flex align-items-center no-gutters"
+          className="list-group-item bg-light row d-flex align-items-center no-gutters file-list-item"
           key={file.id}
+          data-id={file.id}
+          data-title={file.title}
         >
           {file.id === editId || file.isNew ? (
             <>

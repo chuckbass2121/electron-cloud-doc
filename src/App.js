@@ -17,7 +17,7 @@ import FileSearch from './components/FileSearch';
 import FileList from './components/FileList';
 import BottomBtn from './components/BottomBtn';
 import TabList from './components/TabList';
-import defaultFiles from './utils/defaultFiles';
+// import defaultFiles from './utils/defaultFiles';
 import { arrToObj, objToArr } from './utils/helper';
 import fileHelper from './utils/fileHelper';
 
@@ -72,10 +72,9 @@ function App() {
     setActiveFileId(fileID);
     const currentFile = files[fileID];
     if (!currentFile.isLoaded) {
-      fileHelper.readFile(currentFile.path).then((value) => {
-        const newFile = { ...files[fileID], body: value, isLoaded: true };
-        setFiles({ ...files, [fileID]: newFile });
-      });
+      const value = fileHelper.readFile(currentFile.path);
+      const newFile = { ...files[fileID], body: value, isLoaded: true };
+      setFiles({ ...files, [fileID]: newFile });
     }
     if (!openedFileIds.includes(fileID)) {
       setOpenedFileIds([...openedFileIds, fileID]);
@@ -110,15 +109,14 @@ function App() {
       const { [id]: value, ...afterDelete } = files;
       setFiles(afterDelete);
     } else {
-      fileHelper.deleteFile(files[id].path).then(() => {
-        const { [id]: value, ...afterDelete } = files;
-        setFiles(afterDelete);
-        saveFilesToStore(afterDelete);
-        // close the tab if opened
-        if (openedFileIds.includes(id)) {
-          handleTabClose(id);
-        }
-      });
+      fileHelper.deleteFile(files[id].path);
+      const { [id]: value, ...afterDelete } = files;
+      setFiles(afterDelete);
+      saveFilesToStore(afterDelete);
+      // close the tab if opened
+      if (openedFileIds.includes(id)) {
+        handleTabClose(id);
+      }
     }
   };
 
@@ -136,17 +134,15 @@ function App() {
     const modifiedFile = { ...files[id], title, isNew: false, path: newPath };
     const newFiles = { ...files, [id]: modifiedFile };
     if (isNew) {
-      fileHelper.writeFile(newPath, files[id].body).then(() => {
-        setFiles(newFiles);
-        saveFilesToStore(newFiles);
-      });
+      fileHelper.writeFile(newPath, files[id].body);
+      setFiles(newFiles);
+      saveFilesToStore(newFiles);
     } else {
       //rename
       const oldPath = files[id].path;
-      fileHelper.renameFile(oldPath, newPath).then(() => {
-        setFiles(newFiles);
-        saveFilesToStore(newFiles);
-      });
+      fileHelper.renameFile(oldPath, newPath);
+      setFiles(newFiles);
+      saveFilesToStore(newFiles);
     }
   };
 
@@ -164,9 +160,8 @@ function App() {
 
   const saveCurrentFile = () => {
     const { path, body } = activeFile;
-    fileHelper.writeFile(path, body).then(() => {
-      setUnsavedFilesIds(unsavedFileIds.filter((id) => id !== activeFile.id));
-    });
+    fileHelper.writeFile(path, body);
+    setUnsavedFilesIds(unsavedFileIds.filter((id) => id !== activeFile.id));
   };
 
   const importFiles = () => {
