@@ -143,12 +143,6 @@ function FileList(props) {
               >
                 {file.title}
               </span>
-              <span className="col-1" onClick={() => handleEdit(file)}>
-                <FontAwesomeIcon icon="edit" />
-              </span>
-              <span className="col-1" onClick={() => onFileDelete(file.id)}>
-                <FontAwesomeIcon icon="trash" />
-              </span>
             </>
           )}
         </li>

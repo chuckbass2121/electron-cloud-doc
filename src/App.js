@@ -24,6 +24,7 @@ import fileHelper from './utils/fileHelper';
 import 'easymde/dist/easymde.min.css';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import useIpcRenderer from './hooks/useIpcRenderer';
 library.add(
   fab,
   faSearch,
@@ -96,11 +97,13 @@ function App() {
   };
 
   const handleFileChange = (id, value) => {
-    const modifiedFile = { ...files[id], body: value };
-    setFiles({ ...files, [id]: modifiedFile });
+    if (value !== files[id].body) {
+      const modifiedFile = { ...files[id], body: value };
+      setFiles({ ...files, [id]: modifiedFile });
 
-    if (!unsavedFileIds.includes(id)) {
-      setUnsavedFilesIds([...unsavedFileIds, id]);
+      if (!unsavedFileIds.includes(id)) {
+        setUnsavedFilesIds([...unsavedFileIds, id]);
+      }
     }
   };
 
@@ -177,7 +180,10 @@ function App() {
           // filter out the path we already have in electron store
           // ["/Users/liusha/Desktop/name1.md", "/Users/liusha/Desktop/name2.md"]
           const filteredPaths = filePaths.filter((path) => {
-            return Object.values(files).find((file) => file.path !== path);
+            const alreadyAdded = Object.values(files).find((file) => {
+              return file.path === path;
+            });
+            return !alreadyAdded;
           });
           // extend the path array to an array contains files info
           // [{id: '1', path: '', title: ''}, {}]
@@ -211,6 +217,13 @@ function App() {
       });
   };
 
+  useIpcRenderer({
+    'create-new-file': createNewFile,
+    'import-file': importFiles,
+    'search-file': handleFileSearch,
+    'save-edit-file': saveCurrentFile,
+  });
+
   return (
     <div className="container-fluid">
       <div className="row no-gutters min-vh-100">
@@ -234,12 +247,6 @@ function App() {
               colorClass="btn-success"
               icon="file-import"
               onBtnClick={importFiles}
-            />
-            <BottomBtn
-              text="保存"
-              colorClass="btn-success"
-              icon="file-import"
-              onBtnClick={saveCurrentFile}
             />
           </div>
         </div>
