@@ -11,3 +11,14 @@
   color: #ccc;
   text-align: center;
 }
+
+.CodeMirror-scroll {
+  height: 600px !important;
+}
+.sync-status {
+  font-size: 12px;
+  color: #959694;
+  position: absolute;
+  bottom: 12px;
+  left: 10px;
+}

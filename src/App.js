@@ -18,7 +18,7 @@ import FileList from './components/FileList';
 import BottomBtn from './components/BottomBtn';
 import TabList from './components/TabList';
 // import defaultFiles from './utils/defaultFiles';
-import { arrToObj, objToArr } from './utils/helper';
+import { arrToObj, objToArr, timestampToString } from './utils/helper';
 import fileHelper from './utils/fileHelper';
 
 import 'easymde/dist/easymde.min.css';
@@ -36,11 +36,17 @@ library.add(
   faCircle
 );
 const { join, dirname, basename, extname } = require('path');
-const { remote } = require('electron');
+const { remote, ipcRenderer } = require('electron');
 
 const Store = require('electron-store');
 const fileStore = new Store({ name: 'Files Data' });
 const settingsStore = new Store({ name: 'Settings' });
+
+const getAutoSync = () =>
+  ['accessKey', 'secretKey', 'bucketName', 'enableAutoSync'].every(
+    (key) => !!settingsStore.get(key)
+  );
+
 const saveFilesToStore = (files) => {
   const filesStoreObj = objToArr(files).reduce((result, file) => {
     const { id, path, title, createdAt, isSynced, updatedAt } = file;
@@ -165,9 +171,12 @@ function App() {
   };
 
   const saveCurrentFile = () => {
-    const { path, body } = activeFile;
+    const { path, body, title } = activeFile;
     fileHelper.writeFile(path, body);
     setUnsavedFilesIds(unsavedFileIds.filter((id) => id !== activeFile.id));
+    if (getAutoSync()) {
+      ipcRenderer.send('upload-file', { key: `${title}.md`, path });
+    }
   };
 
   const importFiles = () => {
@@ -213,11 +222,20 @@ function App() {
       })
       .catch((err) => {
         console.log(err);
-        remote.dialog.showMessageBoxSync({
-          type: 'error',
-          message: `${err}`,
-        });
+        remote.dialog.showErrorBox('import failed', `${err}`);
       });
+  };
+
+  const activeFileUploaded = () => {
+    const { id } = activeFile;
+    const modifiedFile = {
+      ...files[id],
+      isSynced: true,
+      updatedAt: new Date().getTime(),
+    };
+    const newFiles = { ...files, [id]: modifiedFile };
+    setFiles(newFiles);
+    saveFilesToStore(newFiles);
   };
 
   useIpcRenderer({
@@ -227,6 +245,7 @@ function App() {
       setInputActive(true);
     },
     'save-edit-file': saveCurrentFile,
+    'active-file-uploaded': activeFileUploaded,
   });
 
   return (
@@ -280,6 +299,11 @@ function App() {
                   minHeight: '85vh',
                 }}
               />
+              {activeFile.isSynced && (
+                <span className="sync-status">
+                  已同步，上次同步{timestampToString(activeFile.updatedAt)}
+                </span>
+              )}
             </>
           )}
         </div>
