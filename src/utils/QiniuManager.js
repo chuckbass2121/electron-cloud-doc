@@ -14,6 +14,7 @@ class QiniuManager {
 
     this.bucketManager = new qiniu.rs.BucketManager(this.mac, this.config);
   }
+
   uploadFile(key, localFilePath) {
     // generate uploadToken
     const options = {
@@ -30,6 +31,24 @@ class QiniuManager {
         key,
         localFilePath,
         putExtra,
+        this._handleCallback(resolve, reject)
+      );
+    });
+  }
+
+  renameFile(srcKey, destKey) {
+    // 强制覆盖已有同名文件
+    const options = {
+      force: true,
+    };
+    console.log('srcKey: ', srcKey, 'destKey: ', destKey);
+    return new Promise((resolve, reject) => {
+      this.bucketManager.move(
+        this.bucket,
+        srcKey,
+        this.bucket,
+        destKey,
+        options,
         this._handleCallback(resolve, reject)
       );
     });

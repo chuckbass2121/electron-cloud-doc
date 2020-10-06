@@ -6,17 +6,12 @@ import useContextMenu from '../../hooks/useContextMenu';
 import { getParentNode } from '../../utils/helper';
 
 function FileList(props) {
-  const { files, onFileClick, onSaveEdit, onFileDelete } = props;
+  const { files, onFileClick, onFileRename, onFileDelete } = props;
   const [editId, setEditId] = useState('');
   const [value, setValue] = useState('');
   const inputRef = useRef(null);
   const enterPressed = useKeyPress(13);
   const escPressed = useKeyPress(27);
-
-  const handleEdit = (file) => {
-    setEditId(file.id);
-    setValue(file.title);
-  };
 
   const closeSearch = useCallback(
     (editItem) => {
@@ -32,14 +27,22 @@ function FileList(props) {
   useEffect(() => {
     const editItem = files.find((file) => file.id === editId);
     if (enterPressed && editId && value.trim() !== '') {
-      onSaveEdit(editItem.id, value, editItem.isNew);
+      onFileRename(editItem.id, value, editItem.isNew);
       setEditId('');
       setValue('');
     }
     if (escPressed && editId) {
       closeSearch(editItem);
     }
-  }, [files, enterPressed, editId, escPressed, onSaveEdit, value, closeSearch]);
+  }, [
+    files,
+    enterPressed,
+    editId,
+    escPressed,
+    onFileRename,
+    value,
+    closeSearch,
+  ]);
 
   useEffect(() => {
     const newFile = files.find((file) => file.isNew);
@@ -154,7 +157,7 @@ function FileList(props) {
 FileList.propTypes = {
   files: PropTypes.array.isRequired,
   onFileClick: PropTypes.func.isRequired,
-  onSaveEdit: PropTypes.func.isRequired,
+  onFileRename: PropTypes.func.isRequired,
   onFileDelete: PropTypes.func.isRequired,
 };
 

@@ -17,6 +17,7 @@ import FileSearch from './components/FileSearch';
 import FileList from './components/FileList';
 import BottomBtn from './components/BottomBtn';
 import TabList from './components/TabList';
+import Loader from './components/Loader';
 // import defaultFiles from './utils/defaultFiles';
 import { arrToObj, objToArr, timestampToString } from './utils/helper';
 import fileHelper from './utils/fileHelper';
@@ -70,6 +71,7 @@ function App() {
   const [unsavedFileIds, setUnsavedFilesIds] = useState([]);
   const [searchedFiles, setSearchedFiles] = useState([]);
   const [inputActive, setInputActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const filesArr = objToArr(files);
   const openedFiles = openedFileIds.map((id) => files[id]);
@@ -80,11 +82,15 @@ function App() {
 
   const handleFileClick = (fileID) => {
     setActiveFileId(fileID);
-    const currentFile = files[fileID];
-    if (!currentFile.isLoaded) {
-      const value = fileHelper.readFile(currentFile.path);
-      const newFile = { ...files[fileID], body: value, isLoaded: true };
-      setFiles({ ...files, [fileID]: newFile });
+    const { isLoaded, title, path, id } = files[fileID];
+    if (!isLoaded) {
+      if (getAutoSync()) {
+        ipcRenderer.send('download-file', { key: `${title}.md`, path, id });
+      } else {
+        const value = fileHelper.readFile(path);
+        const newFile = { ...files[fileID], body: value, isLoaded: true };
+        setFiles({ ...files, [fileID]: newFile });
+      }
     }
     if (!openedFileIds.includes(fileID)) {
       setOpenedFileIds([...openedFileIds, fileID]);
@@ -117,14 +123,21 @@ function App() {
   };
 
   const handleFileDelete = (id) => {
-    if (files[id].isNew) {
+    const { isNew, path, title } = files[id];
+    if (isNew) {
       const { [id]: value, ...afterDelete } = files;
       setFiles(afterDelete);
     } else {
-      fileHelper.deleteFile(files[id].path);
+      fileHelper.deleteFile(path);
       const { [id]: value, ...afterDelete } = files;
       setFiles(afterDelete);
       saveFilesToStore(afterDelete);
+      if (getAutoSync()) {
+        ipcRenderer.send('delete-file', {
+          id,
+          key: `${title}.md`,
+        });
+      }
       // close the tab if opened
       if (openedFileIds.includes(id)) {
         handleTabClose(id);
@@ -137,14 +150,17 @@ function App() {
     setSearchedFiles(newFiles);
   };
 
-  const handleSaveEdit = (id, title, isNew) => {
+  const handleFileRename = (id, title, isNew) => {
     // newPath should be different based on isNew
     // if isNew is false, path should be old dirname + new title
+    const newFileName = `${title}.md`;
     const newPath = isNew
-      ? join(savedLocation, `${title}.md`)
-      : join(dirname(files[id].path), `${title}.md`);
+      ? join(savedLocation, newFileName)
+      : join(dirname(files[id].path), newFileName);
+
     const modifiedFile = { ...files[id], title, isNew: false, path: newPath };
     const newFiles = { ...files, [id]: modifiedFile };
+
     if (isNew) {
       fileHelper.writeFile(newPath, files[id].body);
       setFiles(newFiles);
@@ -155,6 +171,16 @@ function App() {
       fileHelper.renameFile(oldPath, newPath);
       setFiles(newFiles);
       saveFilesToStore(newFiles);
+    }
+
+    if (getAutoSync()) {
+      const oldFileName = `${files[id].title}.md`;
+      console.log('newFileName: ', newFileName);
+      ipcRenderer.send('rename-file', {
+        id,
+        srcKey: oldFileName,
+        destKey: newFileName,
+      });
     }
   };
 
@@ -238,6 +264,53 @@ function App() {
     saveFilesToStore(newFiles);
   };
 
+  const activeFileDownloaded = (event, message) => {
+    const currentFile = files[message.id];
+    const { id, path } = currentFile;
+    const value = fileHelper.readFile(path);
+    let newFile;
+    if (message.status === 'download-success') {
+      newFile = {
+        ...files[id],
+        body: value,
+        isLoaded: true,
+        isSynced: true,
+        updatedAt: new Date().getTime(),
+      };
+    } else {
+      newFile = { ...files[id], body: value, isLoaded: true };
+    }
+    const newFiles = { ...files, [id]: newFile };
+    setFiles(newFiles);
+    saveFilesToStore(newFiles);
+  };
+
+  const filesUploaded = () => {
+    const newFiles = objToArr(files).reduce((result, file) => {
+      const currentTime = new Date().getTime();
+      result[file.id] = {
+        ...files[file.id],
+        isSynced: true,
+        updatedAt: currentTime,
+      };
+      return result;
+    }, {});
+    setFiles(newFiles);
+    saveFilesToStore(newFiles);
+  };
+
+  const fileRenamed = (event, message) => {
+    const id = message.id;
+    const modifiedFile = {
+      ...files[id],
+      isSynced: true,
+      updatedAt: new Date().getTime(),
+    };
+    const newFiles = { ...files, [id]: modifiedFile };
+    setFiles(newFiles);
+    saveFilesToStore(newFiles);
+  };
+
   useIpcRenderer({
     'create-new-file': createNewFile,
     'import-file': importFiles,
@@ -246,10 +319,17 @@ function App() {
     },
     'save-edit-file': saveCurrentFile,
     'active-file-uploaded': activeFileUploaded,
+    'file-downloaded': activeFileDownloaded,
+    'files-uploaded': filesUploaded,
+    'file-renamed': fileRenamed,
+    'loading-status': (message, status) => {
+      setIsLoading(status);
+    },
   });
 
   return (
     <div className="container-fluid">
+      {isLoading && <Loader />}
       <div className="row no-gutters min-vh-100">
         <div className="col-3">
           <FileSearch
@@ -262,7 +342,7 @@ function App() {
             files={searchedFiles.length ? searchedFiles : filesArr}
             onFileClick={handleFileClick}
             onFileDelete={handleFileDelete}
-            onSaveEdit={handleSaveEdit}
+            onFileRename={handleFileRename}
           />
           <div className="d-flex align-items-baseline bottom-btn-group">
             <BottomBtn

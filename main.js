@@ -7,6 +7,7 @@ const menuTemplate = require('./src/menuTemplate');
 const AppWindow = require('./src/AppWindow');
 const QiniuManager = require('./src/utils/QiniuManager');
 const settingsStore = new Store({ name: 'Settings' });
+const fileStore = new Store({ name: 'Files Data' });
 
 const createManager = () => {
   const accessKey = settingsStore.get('accessKey');
@@ -74,6 +75,98 @@ app.whenReady().then(() => {
       })
       .catch(() => {
         dialog.showErrorBox('同步失败', '请检查七牛云参数是否正确');
+      });
+  });
+
+  ipcMain.on('download-file', (event, data) => {
+    const manager = createManager();
+    const filesObj = fileStore.get('files');
+    const { key, path, id } = data;
+    manager.getStat(key).then(
+      (resp) => {
+        const serverUpdatedTime = Math.round(resp.putTime / 10000);
+        const localUpdatedTime = filesObj[id].updatedAt;
+        if (serverUpdatedTime > localUpdatedTime || !localUpdatedTime) {
+          manager.downloadFile(key, path).then(() => {
+            mainWindow.webContents.send('file-downloaded', {
+              status: 'download-success',
+              id,
+            });
+          });
+        } else {
+          mainWindow.webContents.send('file-downloaded', {
+            status: 'no-new-file',
+            id,
+          });
+        }
+      },
+      (error) => {
+        if (error.statusCode === 612) {
+          mainWindow.webContents.send('file-downloaded', {
+            status: 'no-file',
+            id,
+          });
+        }
+      }
+    );
+  });
+
+  ipcMain.on('upload-all-to-qiniu', () => {
+    mainWindow.webContents.send('loading-status', true);
+    const manager = createManager();
+    const filesObj = fileStore.get('files') || {};
+    const uploadPromiseArr = Object.keys(filesObj).map((key) => {
+      const file = filesObj[key];
+      return manager.uploadFile(`${file.title}.md`, file.path);
+    });
+    Promise.all(uploadPromiseArr)
+      .then((result) => {
+        console.log(result);
+        // show uploaded message
+        dialog.showMessageBox({
+          type: 'info',
+          title: `成功上传了${result.length}个文件`,
+          message: `成功上传了${result.length}个文件`,
+        });
+        mainWindow.webContents.send('files-uploaded');
+      })
+      .catch(() => {
+        dialog.showErrorBox('同步失败', '请检查七牛云参数是否正确');
+      })
+      .finally(() => {
+        mainWindow.webContents.send('loading-status', false);
+      });
+  });
+
+  ipcMain.on('rename-file', (event, data) => {
+    const { id, srcKey, destKey } = data;
+    const manager = createManager();
+    manager
+      .renameFile(srcKey, destKey)
+      .then(() => {
+        mainWindow.webContents.send('file-renamed', { id });
+      })
+      .catch((err) => {
+        console.log('rename-file: ', err);
+        dialog.showErrorBox('重命名失败', '请检查七牛云参数是否正确');
+      });
+  });
+
+  ipcMain.on('delete-file', (event, data) => {
+    const { key } = data;
+    const manager = createManager();
+    manager
+      .deleteFile(key)
+      .then(() => {
+        dialog.showMessageBox({
+          type: 'info',
+          title: `${key} is deleted`,
+          message: `${key} is deleted`,
+        });
+      })
+      .catch((err) => {
+        console.log('delete-file: ', err);
+        dialog.showErrorBox('删除失败', '请检查七牛云参数是否正确');
       });
   });
 
