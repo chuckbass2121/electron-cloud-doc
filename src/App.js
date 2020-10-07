@@ -37,6 +37,7 @@ library.add(
   faCircle
 );
 const { join, dirname, basename, extname } = require('path');
+const fs = require('fs');
 const { remote, ipcRenderer } = require('electron');
 
 const Store = require('electron-store');
@@ -154,9 +155,20 @@ function App() {
     // newPath should be different based on isNew
     // if isNew is false, path should be old dirname + new title
     const newFileName = `${title}.md`;
-    const newPath = isNew
-      ? join(savedLocation, newFileName)
-      : join(dirname(files[id].path), newFileName);
+    let newPath = '';
+
+    if (isNew) {
+      newPath = join(savedLocation, newFileName);
+      if (fs.existsSync(newPath)) {
+        remote.dialog.showErrorBox(
+          'file already exists',
+          'file already exists'
+        );
+        return;
+      }
+    } else {
+      newPath = join(dirname(files[id].path), newFileName);
+    }
 
     const modifiedFile = { ...files[id], title, isNew: false, path: newPath };
     const newFiles = { ...files, [id]: modifiedFile };
@@ -218,8 +230,9 @@ function App() {
           // filter out the path we already have in electron store
           // ["/Users/liusha/Desktop/name1.md", "/Users/liusha/Desktop/name2.md"]
           const filteredPaths = filePaths.filter((path) => {
+            const title = basename(path, extname(path));
             const alreadyAdded = Object.values(files).find((file) => {
-              return file.path === path;
+              return file.path === path || file.title === title;
             });
             return !alreadyAdded;
           });
@@ -285,6 +298,39 @@ function App() {
     saveFilesToStore(newFiles);
   };
 
+  const allFilesDownloaded = (event, message) => {
+    console.log('allFilesDownloaded:', message);
+    const { status, newDownloadedFiles, updatedFiles } = message;
+    if (status === 'download-success') {
+      const _newDownloadedFiles = newDownloadedFiles.map((file) => {
+        const { key, path } = file;
+        return {
+          id: uuidv4(),
+          title: key.match(/^(\w+).md$/)[1],
+          path: path,
+          body: fileHelper.readFile(path),
+          isLoaded: true,
+          isSynced: true,
+          updatedAt: new Date().getTime(),
+        };
+      });
+      const _updatedFiles = updatedFiles.length
+        ? updatedFiles.map((file) => {
+            return {
+              ...files[file.id],
+              body: fileHelper.readFile(file.path),
+              isLoaded: true,
+              isSynced: true,
+              updatedAt: new Date().getTime(),
+            };
+          })
+        : [];
+      const newFiles = arrToObj([..._newDownloadedFiles, ..._updatedFiles]);
+      setFiles(newFiles);
+      saveFilesToStore(newFiles);
+    }
+  };
+
   const filesUploaded = () => {
     const newFiles = objToArr(files).reduce((result, file) => {
       const currentTime = new Date().getTime();
@@ -320,6 +366,7 @@ function App() {
     'save-edit-file': saveCurrentFile,
     'active-file-uploaded': activeFileUploaded,
     'file-downloaded': activeFileDownloaded,
+    'all-downloaded': allFilesDownloaded,
     'files-uploaded': filesUploaded,
     'file-renamed': fileRenamed,
     'loading-status': (message, status) => {

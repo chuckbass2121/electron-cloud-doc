@@ -8,12 +8,20 @@ const AppWindow = require('./src/AppWindow');
 const QiniuManager = require('./src/utils/QiniuManager');
 const settingsStore = new Store({ name: 'Settings' });
 const fileStore = new Store({ name: 'Files Data' });
+const savedLocation =
+  settingsStore.get('savedFileLocation') || app.getPath('documents');
 
 const createManager = () => {
   const accessKey = settingsStore.get('accessKey');
   const secretKey = settingsStore.get('secretKey');
   const bucketName = settingsStore.get('bucketName');
   return new QiniuManager(accessKey, secretKey, bucketName);
+};
+
+const isDownloadNeeded = (putTime, updatedAt) => {
+  const serverUpdatedTime = Math.round(putTime / 10000);
+  const localUpdatedTime = updatedAt;
+  return serverUpdatedTime > localUpdatedTime || !localUpdatedTime;
 };
 
 function createWindow() {
@@ -84,9 +92,11 @@ app.whenReady().then(() => {
     const { key, path, id } = data;
     manager.getStat(key).then(
       (resp) => {
-        const serverUpdatedTime = Math.round(resp.putTime / 10000);
-        const localUpdatedTime = filesObj[id].updatedAt;
-        if (serverUpdatedTime > localUpdatedTime || !localUpdatedTime) {
+        const downloadNeeded = isDownloadNeeded(
+          resp.putTime,
+          filesObj[id].updatedAt
+        );
+        if (downloadNeeded) {
           manager.downloadFile(key, path).then(() => {
             mainWindow.webContents.send('file-downloaded', {
               status: 'download-success',
@@ -150,6 +160,99 @@ app.whenReady().then(() => {
         console.log('rename-file: ', err);
         dialog.showErrorBox('重命名失败', '请检查七牛云参数是否正确');
       });
+  });
+
+  ipcMain.on('download-all', () => {
+    // 1. get all the file list from qiniu
+    const manager = createManager();
+    manager.downloadAllFiles().then(({ items }) => {
+      console.log('download-all', items);
+      if (!Array.isArray(items) || items.length === 0) {
+        dialog.showErrorBox(
+          'there are no files in cloud',
+          'there are no files in cloud'
+        );
+      }
+      // 2. compare with local files in the store, only download
+      // the latest file and file which is not in local
+      const localFiles = fileStore.get('files') || {};
+      let filteredFiles = [];
+      let newDownloadedFiles = [];
+      let updatedFiles = [];
+
+      if (Object.getOwnPropertyNames(localFiles).length) {
+        newDownloadedFiles = items
+          .filter((item) => {
+            const needDownload = Object.values(localFiles).find((file) => {
+              return item.key !== `${file.title}.md`;
+            });
+            return needDownload;
+          })
+          .map((item) => {
+            item.path = path.join(savedLocation, item.key);
+            return item;
+          });
+
+        updatedFiles = items
+          .filter((item) => {
+            const needDownload = Object.values(localFiles).find((file) => {
+              return (
+                item.key === `${file.title}.md` &&
+                isDownloadNeeded(item.putTime, file.updatedAt)
+              );
+            });
+            return needDownload;
+          })
+          .map((item) => {
+            let localFile = Object.values(localFiles).find((file) => {
+              return item.key === `${file.title}.md`;
+            });
+            item.id = localFile.id;
+            item.path = path.join(savedLocation, item.key);
+            return item;
+          });
+
+        filteredFiles = newDownloadedFiles.concat(updatedFiles);
+      } else {
+        filteredFiles = items;
+      }
+
+      if (filteredFiles.length === 0) {
+        mainWindow.webContents.send('all-downloaded', {
+          status: 'no-new-files',
+          newDownloadedFiles,
+          updatedFiles,
+        });
+      }
+      mainWindow.webContents.send('loading-status', true);
+      // 3. send download request for filtered list
+
+      const downloadAllPromiseArr = filteredFiles.map((file) => {
+        return manager.downloadFile(file.key, file.path);
+      });
+
+      Promise.all(downloadAllPromiseArr)
+        .then((results) => {
+          console.log('downloadAllPromiseArr: ', results);
+          mainWindow.webContents.send('all-downloaded', {
+            status: 'download-success',
+            newDownloadedFiles,
+            updatedFiles,
+          });
+          dialog.showMessageBox({
+            type: 'info',
+            title: `downloaded ${results.length} 个file success`,
+            message: `downloaded ${results.length} 个file success`,
+          });
+        })
+        .catch((err) => {
+          console.log('download-all', err);
+          dialog.showErrorBox('download-all失败', '请检查七牛云参数是否正确');
+        })
+        .finally(() => {
+          mainWindow.webContents.send('loading-status', false);
+        });
+    });
   });
 
   ipcMain.on('delete-file', (event, data) => {

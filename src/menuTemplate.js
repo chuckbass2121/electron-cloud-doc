@@ -105,9 +105,11 @@ let template = [
         },
       },
       {
-        label: '从云端下载到本地',
+        label: '全部从云端下载到本地',
         enabled: qiniuIsConfiged,
-        click: () => {},
+        click: () => {
+          ipcMain.emit('download-all');
+        },
       },
     ],
   },

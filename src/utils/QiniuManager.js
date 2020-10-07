@@ -127,13 +127,23 @@ class QiniuManager {
         const writer = fs.createWriteStream(downloadPath);
         response.data.pipe(writer);
         return new Promise((resolve, reject) => {
-          writer.on('finish', resolve);
-          writer.on('error', reject);
+          writer.on('finish', () => resolve(writer));
+          writer.on('error', (err) => reject(err));
         });
       })
       .catch((err) => {
         return Promise.reject({ err: err.response });
       });
+  }
+
+  downloadAllFiles() {
+    return new Promise((resolve, reject) => {
+      this.bucketManager.listPrefix(
+        this.bucket,
+        {},
+        this._handleCallback(resolve, reject)
+      );
+    });
   }
 
   _handleCallback(resolve, reject) {
