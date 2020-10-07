@@ -2,6 +2,7 @@ const path = require('path');
 const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const isDev = require('electron-is-dev');
 const Store = require('electron-store');
+const { autoUpdater } = require('electron-updater');
 
 const menuTemplate = require('./src/menuTemplate');
 const AppWindow = require('./src/AppWindow');
@@ -45,6 +46,32 @@ function createWindow() {
 // Electron会在初始化完成并且准备好创建浏览器窗口时调用这个方法
 // 部分 API 在 ready 事件触发后才能使用。
 app.whenReady().then(() => {
+  autoUpdater.autoDownload = false;
+  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.on('error', (error) => {
+    dialog.showErrorBox('Error', error == null ? 'unknown' : error.status);
+  });
+  autoUpdater.on('update-available', () => {
+    dialog
+      .showMessageBox({
+        type: 'infor',
+        title: '应用有新的版本',
+        message: '发现新版本，是否现在更新？',
+        buttons: ['是', '否'],
+      })
+      .then((buttonIndex) => {
+        if (buttonIndex === 0) {
+          autoUpdater.downloadUpdate();
+        }
+      });
+  });
+  autoUpdater.on('update-not-available', () => {
+    dialog.showMessageBox({
+      title: '没有新版本',
+      message: '已经是最新版本',
+    });
+  });
+
   let mainWindow = createWindow();
   mainWindow.on('closed', () => {
     mainWindow = null;

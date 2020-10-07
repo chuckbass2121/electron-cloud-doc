@@ -10,33 +10,16 @@
   "repository": "https://github.com/chuckbass2121/electron-cloud-doc",
   "private": true,
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^1.2.30",
-    "@fortawesome/free-brands-svg-icons": "^5.14.0",
-    "@fortawesome/free-solid-svg-icons": "^5.14.0",
-    "@fortawesome/react-fontawesome": "^0.1.11",
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.5.0",
-    "@testing-library/user-event": "^7.2.1",
     "bootstrap": "^4.5.2",
-    "classnames": "^2.2.6",
-    "node-sass": "^4.14.1",
-    "prop-types": "^15.7.2",
-    "qiniu": "^7.3.2",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-scripts": "3.4.3",
-    "react-simplemde-editor": "^4.1.3",
-    "uuid": "^8.3.0",
-    "electron-is-dev": "^1.2.0",
-    "electron-store": "^6.0.0",
-    "axios": "^0.20.0"
+    "electron-store": "^6.0.0"
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build": "react-scripts build",
+    "build": "react-app-rewired build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "dev": "concurrently \"wait-on http://localhost:3000 && electron .\" \"cross-env BROWSER=none npm start\"",
+    "buildMain": "webpack",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "release": "electron-builder",
@@ -48,7 +31,7 @@
   "build": {
     "appId": "chuckCloudDoc",
     "productName": "七牛云文档",
-    "copyright": "Copyright © 2019 ${author}",
+    "copyright": "Copyright © 2020 ${author}",
     "files": [
       "build/**/*",
       "node_modules/**/*",
@@ -61,7 +44,9 @@
     "extraMetadata": {
       "main": "./build/main.js"
     },
-    "publish": ["github"],
+    "publish": [
+      "github"
+    ],
     "extends": null,
     "mac": {
       "category": "public.app-category.productivity",
@@ -91,7 +76,8 @@
     },
     "win": {
       "target": [
-        "msi", "nsis"
+        "msi",
+        "nsis"
       ],
       "icon": "assets/icon.ico",
       "artifactName": "${productName}-Web-Setup-${version}.${ext}",
@@ -126,17 +112,37 @@
     ]
   },
   "devDependencies": {
+    "@fortawesome/fontawesome-svg-core": "^1.2.30",
+    "@fortawesome/free-brands-svg-icons": "^5.14.0",
+    "@fortawesome/free-solid-svg-icons": "^5.14.0",
+    "@fortawesome/react-fontawesome": "^0.1.11",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.5.0",
+    "@testing-library/user-event": "^7.2.1",
+    "axios": "^0.20.0",
+    "classnames": "^2.2.6",
     "concurrently": "^5.3.0",
     "cross-env": "^7.0.2",
     "customize-cra": "^1.0.0",
     "electron": "^10.1.2",
     "electron-builder": "^22.8.1",
+    "electron-is-dev": "^1.2.0",
+    "electron-updater": "^4.3.5",
     "eslint-plugin-react-hooks": "^4.1.2",
     "husky": "^4.3.0",
     "lint-staged": "^10.4.0",
+    "node-sass": "^4.14.1",
     "prettier": "^2.1.2",
+    "prop-types": "^15.7.2",
+    "qiniu": "^7.3.2",
+    "react": "^16.13.1",
     "react-app-rewired": "^2.1.6",
-    "wait-on": "^5.2.0"
+    "react-dom": "^16.13.1",
+    "react-scripts": "3.4.3",
+    "react-simplemde-editor": "^4.1.3",
+    "uuid": "^8.3.0",
+    "wait-on": "^5.2.0",
+    "webpack-cli": "^3.3.12"
   },
   "husky": {
     "hooks": {
