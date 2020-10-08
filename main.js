@@ -46,10 +46,16 @@ function createWindow() {
 // Electron会在初始化完成并且准备好创建浏览器窗口时调用这个方法
 // 部分 API 在 ready 事件触发后才能使用。
 app.whenReady().then(() => {
+  if (isDev) {
+    autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
+  }
   autoUpdater.autoDownload = false;
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdates();
   autoUpdater.on('error', (error) => {
     dialog.showErrorBox('Error', error == null ? 'unknown' : error.status);
+  });
+  autoUpdater.on('checking-for-update', () => {
+    console.log('checking-for-update');
   });
   autoUpdater.on('update-available', () => {
     dialog
@@ -72,6 +78,17 @@ app.whenReady().then(() => {
     });
   });
 
+  autoUpdater.on('update-downloaded', () => {
+    dialog
+      .showMessageBox({
+        title: '安装更新',
+        message: '更新下载完毕，应用将重启进行安装',
+      })
+      .then(() => {
+        setImmediate(() => autoUpdater.quitAndInstall());
+      });
+  });
+
   let mainWindow = createWindow();
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -86,10 +103,15 @@ app.whenReady().then(() => {
       height: 600,
       parent: mainWindow,
     };
-    const settingsFileLocation = `file://${path.join(
-      __dirname,
-      './settings/settings.html'
-    )}`;
+
+    // const settingsFileLocation = isDev
+    //   ? `file://${path.join(__dirname, './settings/settings.html')}`
+    //   : `file://${path.join(__dirname, '../settings/settings.html')}`;
+
+    const settingsFileLocation = isDev
+      ? 'http://localhost:3000/#settings'
+      : `file://${path.join(__dirname, './index.html')}#settings`;
+
     let settingsWindow = new AppWindow(
       settingsWindowConfig,
       settingsFileLocation
@@ -98,6 +120,7 @@ app.whenReady().then(() => {
     settingsWindow.on('closed', () => {
       settingsWindow = null;
     });
+    settingsWindow.webContents.openDevTools();
   });
 
   ipcMain.on('upload-file', (event, data) => {
